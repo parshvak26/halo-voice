@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Halo — AI Voice Support (Live Demo)</title>
+  <meta name="description" content="A live, in-browser AI voice support agent: speak to it, get spoken answers, and escalate to a human by email. Built with Deepgram, Groq (Llama), and Cloudflare Workers." />
+  <meta name="theme-color" content="#0b0e1a" />
+
+  <!-- Social preview -->
+  <meta property="og:title" content="Halo — AI Voice Support" />
+  <meta property="og:description" content="Tap the orb, speak, and hear an answer. Escalates to a human by email. Deepgram + Llama + Cloudflare." />
+  <meta property="og:type" content="website" />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,600;12..96,700;12..96,800&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="grain" aria-hidden="true"></div>
+  <div class="aurora" aria-hidden="true"></div>
+
+  <!-- ===================== Top bar ===================== -->
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true"></span>
+      <span class="brand-name" id="brandName">Halo</span>
+      <span class="brand-badge">Live demo</span>
+    </div>
+    <div class="topbar-right">
+      <div class="status-pill" id="statusPill" role="status" aria-live="polite">
+        <span class="status-dot" id="statusDot"></span>
+        <span id="statusText">Ready</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- ===================== Stage ===================== -->
+  <main class="stage">
+    <!-- LEFT: the signature — a reactive voice orb + controls -->
+    <section class="voice-panel" aria-label="Voice controls">
+      <p class="eyebrow" id="tagline">Voice support for Halo smart-home devices</p>
+      <h1 class="headline">Talk to <span id="assistantName">Ava</span>.</h1>
+      <p class="sub">Tap the orb and speak. She listens, answers out loud, and hands you to a
+        human whenever you want.</p>
+
+      <div class="orb-wrap">
+        <canvas id="orb" width="440" height="440" aria-hidden="true"></canvas>
+        <button id="talkBtn" class="talk-btn" aria-pressed="false" aria-label="Tap to talk">
+          <span class="talk-icon" aria-hidden="true"></span>
+          <span class="talk-label" id="talkLabel">Tap to talk</span>
+          <span class="talk-hint" aria-hidden="true">or press <kbd>Space</kbd></span>
+        </button>
+      </div>
+
+      <!-- Clickable example prompts (great when a mic isn't handy) -->
+      <div class="examples" aria-label="Example questions">
+        <span class="examples-label">Try asking</span>
+        <div class="chips" id="chips">
+          <button class="chip" type="button">My thermostat won't connect to Wi-Fi.</button>
+          <button class="chip" type="button">How do I cancel my subscription?</button>
+          <button class="chip" type="button">What's your return policy?</button>
+        </div>
+      </div>
+
+      <div class="controls">
+        <button id="humanBtn" class="ghost-btn">
+          <span class="ghost-ico" data-ico="human" aria-hidden="true"></span>
+          Talk to a human
+        </button>
+        <button id="summaryBtn" class="ghost-btn">
+          <span class="ghost-ico" data-ico="summary" aria-hidden="true"></span>
+          End &amp; summarize
+        </button>
+      </div>
+    </section>
+
+    <!-- RIGHT: live transcript -->
+    <section class="transcript-panel" aria-label="Conversation transcript">
+      <div class="transcript-head">
+        <h2>Transcript</h2>
+        <button id="clearBtn" class="text-btn">Clear</button>
+      </div>
+      <div id="transcript" class="transcript" aria-live="polite">
+        <div class="empty" id="emptyState">
+          <div class="empty-orb" aria-hidden="true"></div>
+          <p>Your conversation will appear here.</p>
+          <p class="hint">Try: &ldquo;My thermostat won't connect to Wi-Fi.&rdquo;</p>
+        </div>
+      </div>
+      <div id="interim" class="interim" aria-hidden="true"></div>
+    </section>
+  </main>
+
+  <!-- ===================== Footer / tech ===================== -->
+  <footer class="site-foot">
+    <p class="fineprint" id="creditNote">Runs entirely on free tiers. Sessions are capped to keep the demo online.</p>
+    <ul class="stack" aria-label="Technology stack">
+      <li>Deepgram <span>STT + TTS</span></li>
+      <li>Groq · Llama 3.3 <span>Brain</span></li>
+      <li>Cloudflare Workers <span>Backend</span></li>
+      <li>Brevo <span>Email handoff</span></li>
+    </ul>
+  </footer>
+
+  <!-- ===================== Handoff dialog ===================== -->
+  <div class="overlay" id="overlay" hidden>
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+      <button class="modal-close" id="modalClose" aria-label="Close">&times;</button>
+
+      <!-- Handoff form -->
+      <div id="handoffView">
+        <h3 id="modalTitle">Get a human to follow up</h3>
+        <p class="modal-sub">We'll email your question to the support team and copy you in.
+          Expect a reply by email.</p>
+        <div class="field">
+          <label for="nameInput">Your name</label>
+          <input id="nameInput" type="text" autocomplete="name" placeholder="Jordan Lee" />
+        </div>
+        <div class="field">
+          <label for="emailInput">Email</label>
+          <input id="emailInput" type="email" autocomplete="email" placeholder="jordan@example.com" />
+        </div>
+        <div class="field">
+          <label for="phoneInput">Phone <span class="opt">(optional)</span></label>
+          <input id="phoneInput" type="tel" autocomplete="tel" placeholder="+1 555 010 1234" />
+        </div>
+        <div id="turnstileSlot" class="turnstile-slot"></div>
+        <p class="form-error" id="formError" hidden></p>
+        <button id="sendHandoff" class="primary-btn">Send to support</button>
+      </div>
+
+      <!-- Confirmation / summary view -->
+      <div id="resultView" hidden>
+        <div class="result-check" aria-hidden="true"><svg viewBox="0 0 52 52"><circle cx="26" cy="26" r="24"/><path d="M15 27l7 7 15-15"/></svg></div>
+        <h3 id="resultTitle">Done</h3>
+        <div id="resultBody" class="result-body"></div>
+        <button id="resultOk" class="primary-btn">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Transient toast for errors / notices -->
+  <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+
+  <!-- Hidden audio element for TTS playback -->
+  <audio id="ttsAudio" playsinline></audio>
+
+  <!-- Turnstile script loads only if a site key is configured (see app.js) -->
+  <script src="config.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
