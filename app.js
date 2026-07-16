@@ -38,6 +38,15 @@
   let micLevel = 0;            // smoothed 0..1 from mic RMS
   const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
+  // Hands-free conversation control. After the first tap, Ava greets, then the
+  // mic re-opens itself after every reply — the user never taps again mid-call.
+  let sessionActive = false;   // true while the hands-free loop is running
+  let hasGreeted = false;      // Ava has delivered the opening greeting
+  let ttsStoppedManually = false; // guard: a manual stop also fires TTS "onended"
+  const GREETING =
+    "Hi, I'm " + (CFG.ASSISTANT_NAME || "Ava") + ", " + (CFG.BUSINESS_NAME || "Halo") +
+    "'s voice support assistant. Tell me what's going on with your device and I'll help you sort it out.";
+
   // ---- status helpers -----------------------------------------------------
   function setState(next, label) {
     state = next;
@@ -214,8 +223,16 @@
     setInterim("");
     const text = finalText.trim();
     if (!text) {
-      if (!sawSpeech) fail("I didn't catch that — try again.");
-      else setState("idle");
+      // Nothing said. In a hands-free call, pause the loop cleanly instead of
+      // re-opening the mic forever (protects credits and mirrors "I'll pause here").
+      if (sessionActive) {
+        sessionActive = false;
+        setState("idle", "Paused — tap to continue");
+      } else if (!sawSpeech) {
+        fail("I didn't catch that — try again.");
+      } else {
+        setState("idle");
+      }
       return;
     }
     handleUserUtterance(text);
@@ -262,28 +279,58 @@
       ttsAnalyser.fftSize = 256;
       ttsSource.connect(ttsAnalyser);
       ttsAnalyser.connect(audioCtx.destination);
-      ttsSource.onended = () => { ttsSource = null; ttsAnalyser = null; if (state === "speaking") setState("idle"); };
+      ttsSource.onended = () => { ttsSource = null; ttsAnalyser = null; onBotDoneSpeaking(); };
       ttsSource.start();
     } catch (err) {
       // Fallback: browser speech synthesis so the demo never goes mute.
       try {
         const u = new SpeechSynthesisUtterance(text);
-        u.onend = () => { if (state === "speaking") setState("idle"); };
+        u.onend = () => onBotDoneSpeaking();
         speechSynthesis.speak(u);
-      } catch { setState("idle"); }
+      } catch { onBotDoneSpeaking(); }
+    }
+  }
+
+  // Called when a spoken reply finishes. In a hands-free call this re-opens the
+  // mic for the next turn automatically; otherwise it just returns to idle.
+  function onBotDoneSpeaking() {
+    if (ttsStoppedManually) { ttsStoppedManually = false; return; } // manual stop already handled
+    if (state !== "speaking") return;
+    if (sessionActive && overlay.hidden) {
+      startTurn();               // hands-free: listen again, no tap needed
+    } else {
+      setState("idle");
     }
   }
 
   function stopSpeaking() {
+    ttsStoppedManually = true;   // suppress the auto-relisten from onended
+    sessionActive = false;       // tapping to stop ends the hands-free loop
     if (ttsSource) { try { ttsSource.stop(); } catch {} ttsSource = null; }
     try { speechSynthesis.cancel(); } catch {}
     ttsAnalyser = null;
     setState("idle");
   }
 
+  // Start (or resume) a hands-free conversation. On the very first tap Ava
+  // greets first, then the mic opens on its own; on resume it just listens.
+  async function beginSession() {
+    sessionActive = true;
+    // Request mic permission up front so the turn right after the greeting is seamless.
+    try { await initAudio(); } catch (err) { /* mic denied — greeting still plays */ }
+    if (!hasGreeted) {
+      hasGreeted = true;
+      addMessage("bot", GREETING);
+      messages.push({ role: "assistant", content: GREETING });
+      await speak(GREETING);     // onBotDoneSpeaking() then opens the mic
+    } else {
+      startTurn();
+    }
+  }
+
   // ---- primary button + keyboard ------------------------------------------
   function primaryAction() {
-    if (state === "idle" || state === "error") startTurn();
+    if (state === "idle" || state === "error") beginSession(); // greet on first tap, else resume listening
     else if (state === "listening") endTurn();
     else if (state === "speaking") stopSpeaking();
     // ignore taps while "thinking"
@@ -313,6 +360,7 @@
 
   $("clearBtn").addEventListener("click", () => {
     messages = [];
+    sessionActive = false; hasGreeted = false; // next tap starts a fresh, greeted call
     transcriptEl.innerHTML = "";
     const e = document.createElement("div");
     e.className = "empty";
