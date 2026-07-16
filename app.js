@@ -573,7 +573,7 @@
       const out = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(out.error || ("handoff " + r.status));
       showResult("Sent to support",
-        `<p>Thanks, ${escapeHtml(name)}. Your question is on its way to our team, and a copy is in your inbox.</p>` +
+        `<p>Thanks, ${escapeHtml(name)}. Your request is on its way to our team and they'll follow up by email.</p>` +
         (out.summary ? `<h4>What we captured</h4><p>${escapeHtml(out.summary)}</p>` : ""), true);
     } catch (err) {
       showFormError("Couldn't send just now. Please try again.");
