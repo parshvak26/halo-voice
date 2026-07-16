@@ -294,12 +294,12 @@ body {
 .msg .bubble {
   padding: 13px 16px; border-radius: 15px; font-size: 15px; line-height: 1.48;
 }
-.msg.user { align-self: flex-end; text-align: right; }
+.msg.user { align-self: flex-start; text-align: left; }
 .msg.user .who { color: var(--aurora-a); }
 .msg.user .bubble {
   background: linear-gradient(135deg, rgba(52,224,208,0.18), rgba(124,107,245,0.18));
   border: 1px solid rgba(124,107,245,0.3);
-  border-bottom-right-radius: 5px;
+  border-bottom-left-radius: 5px;
 }
 .msg.bot .bubble {
   background: var(--surface-2); border: 1px solid var(--line);

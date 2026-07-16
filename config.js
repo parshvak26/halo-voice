@@ -11,7 +11,7 @@ window.APP_CONFIG = {
   //    lives server-side in the Worker so visitors can't tamper with it).
   BUSINESS_NAME: "Halo",
   ASSISTANT_NAME: "Ava",
-  TAGLINE: "Voice support for Halo smart-home devices",
+  TAGLINE: "Your AI voice assistant — ask me anything",
 
   // 3) Optional: Cloudflare Turnstile site key to protect the handoff form
   //    from spam. Leave "" to disable. If set, also set TURNSTILE_SECRET

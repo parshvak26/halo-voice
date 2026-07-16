@@ -44,8 +44,8 @@
   let hasGreeted = false;      // Ava has delivered the opening greeting
   let ttsStoppedManually = false; // guard: a manual stop also fires TTS "onended"
   const GREETING =
-    "Hi, I'm " + (CFG.ASSISTANT_NAME || "Ava") + ", " + (CFG.BUSINESS_NAME || "Halo") +
-    "'s voice support assistant. Tell me what's going on with your device and I'll help you sort it out.";
+    "Hi, I'm " + (CFG.ASSISTANT_NAME || "Ava") +
+    ", your voice assistant. Ask me anything, or tell me what you'd like help with.";
 
   // ---- status helpers -----------------------------------------------------
   function setState(next, label) {
@@ -180,7 +180,13 @@
     const sr = audioCtx.sampleRate;
     const qs = new URLSearchParams({
       model: "nova-3", language: "en", smart_format: "true", punctuate: "true",
-      interim_results: "true", endpointing: "400",
+      // interim_results + a short utterance_end_ms make end-of-turn fire quickly
+      // and reliably (speech_final alone sometimes stalls until the 30s max timer,
+      // which was the "takes a long time to see my message" lag). 400ms endpointing
+      // stays gentle enough not to cut people off mid-thought.
+      interim_results: "true", endpointing: "400", utterance_end_ms: "1000",
+      // Boost recognition of the assistant's name so "Ava" isn't heard as "Eva".
+      keyterm: "Ava",
       encoding: "linear16", sample_rate: String(sr), channels: "1",
     });
     // Authenticate the browser WebSocket with the short-lived JWT via the
@@ -197,6 +203,12 @@
     };
     ws.onmessage = (ev) => {
       let data; try { data = JSON.parse(ev.data); } catch { return; }
+      // Deepgram signals a finished utterance after ~1s of silence. This is our
+      // fast, reliable end-of-turn even when speech_final doesn't arrive.
+      if (data.type === "UtteranceEnd") {
+        if (state === "listening" && finalText.trim()) endTurn();
+        return;
+      }
       if (data.type !== "Results") return;
       const alt = data.channel && data.channel.alternatives && data.channel.alternatives[0];
       const text = alt ? alt.transcript : "";
@@ -238,10 +250,23 @@
     handleUserUtterance(text);
   }
 
+  // Detect an explicit request to reach a human, so we can pop the contact
+  // form automatically (hands-free) instead of asking them to tap a button.
+  function wantsHuman(text) {
+    const t = String(text).toLowerCase();
+    if (/\b(real (person|human)|live (agent|person)|human (agent|being|rep)|customer (service|support)|speak to a human|talk to a human)\b/.test(t)) return true;
+    if (/\b(talk|speak|chat|connect|transfer|escalate|put me through)\b.{0,25}?\b(human|person|someone|agent|representative|rep|operator|advisor)\b/.test(t)) return true;
+    if (/\b(want|need|get|reach)\b.{0,25}?\b(human|agent|representative|operator|real person|live agent)\b/.test(t)) return true;
+    return false;
+  }
+
   // ---- brain + voice ------------------------------------------------------
   async function handleUserUtterance(text) {
     addMessage("user", text);
     messages.push({ role: "user", content: text });
+    // If they asked for a human, open the handoff form right away (Ava also
+    // acknowledges it out loud via her reply). Pauses the hands-free loop.
+    if (wantsHuman(text)) openModal();
     setState("thinking");
     showTyping();
     let reply;
@@ -367,7 +392,7 @@
     e.id = "emptyState";
     e.innerHTML = '<div class="empty-orb" aria-hidden="true"></div>' +
       '<p>Your conversation will appear here.</p>' +
-      '<p class="hint">Try: “My thermostat won’t connect to Wi-Fi.”</p>';
+      '<p class="hint">Try: “What should I cook tonight?”</p>';
     transcriptEl.appendChild(e);
     setInterim("");
   });
