@@ -3,25 +3,22 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <title>Halo — AI Voice Support (Live Demo)</title>
-  <meta name="description" content="A live, in-browser AI voice support agent: speak to it, get spoken answers, and escalate to a human by email. Built with Deepgram, Groq (Llama), and Cloudflare Workers." />
-  <meta name="theme-color" content="#0b0e1a" />
+  <title>Ava — AI Voice Assistant</title>
+  <meta name="description" content="A live, in-browser AI voice assistant: tap, speak, and hear an answer out loud. Ask about anything, or hand off to a human by email." />
+  <meta name="theme-color" content="#ECEAE3" />
 
   <!-- Social preview -->
-  <meta property="og:title" content="Halo — AI Voice Support" />
-  <meta property="og:description" content="Tap the orb, speak, and hear an answer. Escalates to a human by email. Deepgram + Llama + Cloudflare." />
+  <meta property="og:title" content="Ava — AI Voice Assistant" />
+  <meta property="og:description" content="Tap, speak, and hear an answer out loud. Ask Ava about anything." />
   <meta property="og:type" content="website" />
 
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,600;12..96,700;12..96,800&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,470;0,9..144,500;0,9..144,600;1,9..144,500&family=Hanken+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
 
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-  <div class="grain" aria-hidden="true"></div>
-  <div class="aurora" aria-hidden="true"></div>
-
   <!-- ===================== Top bar ===================== -->
   <header class="topbar">
     <div class="brand">
@@ -87,7 +84,7 @@
         <div class="empty" id="emptyState">
           <div class="empty-orb" aria-hidden="true"></div>
           <p>Your conversation will appear here.</p>
-          <p class="hint">Try: &ldquo;My thermostat won't connect to Wi-Fi.&rdquo;</p>
+          <p class="hint">Try: &ldquo;What should I cook tonight?&rdquo;</p>
         </div>
       </div>
       <div id="interim" class="interim" aria-hidden="true"></div>
@@ -101,7 +98,7 @@
       <li>Deepgram <span>STT + TTS</span></li>
       <li>Groq · Llama 3.3 <span>Brain</span></li>
       <li>Cloudflare Workers <span>Backend</span></li>
-      <li>Brevo <span>Email handoff</span></li>
+      <li>Resend <span>Email handoff</span></li>
     </ul>
   </footer>
 
@@ -113,8 +110,8 @@
       <!-- Handoff form -->
       <div id="handoffView">
         <h3 id="modalTitle">Get a human to follow up</h3>
-        <p class="modal-sub">We'll email your question to the support team and copy you in.
-          Expect a reply by email.</p>
+        <p class="modal-sub">Leave your details and we'll email your request, with a summary of
+          this conversation, to the team. They'll follow up by email.</p>
         <div class="field">
           <label for="nameInput">Your name</label>
           <input id="nameInput" type="text" autocomplete="name" placeholder="Jordan Lee" />
@@ -129,7 +126,7 @@
         </div>
         <div id="turnstileSlot" class="turnstile-slot"></div>
         <p class="form-error" id="formError" hidden></p>
-        <button id="sendHandoff" class="primary-btn">Send to support</button>
+        <button id="sendHandoff" class="primary-btn">Send request</button>
       </div>
 
       <!-- Confirmation / summary view -->

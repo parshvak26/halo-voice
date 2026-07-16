@@ -25,7 +25,7 @@
   const orb = $("orb"), ttsAudio = $("ttsAudio");
   const chipsWrap = $("chips"), toastEl = $("toast");
 
-  $("brandName").textContent = CFG.BUSINESS_NAME || "Support";
+  $("brandName").textContent = CFG.ASSISTANT_NAME || CFG.BUSINESS_NAME || "Assistant";
   $("assistantName").textContent = CFG.ASSISTANT_NAME || "the assistant";
   if (CFG.TAGLINE) $("tagline").textContent = CFG.TAGLINE;
 
@@ -446,73 +446,53 @@
     return false;
   }
 
+  // Minimal, single-color signature: a calm baseline ring around the mic that
+  // grows pine-green ticks as you speak or as Ava replies. No glow, no gradient
+  // — the restraint is the point. Accent = deep pine (30,91,69).
   function drawOrb() {
     const w = orb.width, h = orb.height, cx = w / 2, cy = h / 2;
-    phase += reduceMotion ? 0.004 : 0.012;
+    phase += reduceMotion ? 0.003 : 0.01;
     const tgt = targetLevel();
     smooth += (tgt - smooth) * 0.12;
     const active = readSpectrum();
-    const base = Math.min(w, h) * 0.24;
-    const r = base * (1 + smooth * 0.5) * (1 + (reduceMotion ? 0 : Math.sin(phase) * 0.03));
+
+    const base = Math.min(w, h) * 0.28;                 // ring radius ~ just outside the mic disc
+    const breath = reduceMotion ? 0 : Math.sin(phase) * 0.012;
+    const ringBase = base * (1.06 + smooth * 0.10 + breath);
 
     octx.clearRect(0, 0, w, h);
+    octx.save();
+    octx.translate(cx, cy);
 
-    // reactive ring of bars around the orb (listening / speaking)
+    // calm baseline ring — always present, gently breathing
+    octx.strokeStyle = "rgba(30,91,69,0.22)";
+    octx.lineWidth = Math.max(1, base * 0.008);
+    octx.beginPath();
+    octx.arc(0, 0, ringBase, 0, Math.PI * 2);
+    octx.stroke();
+
+    // reactive ticks radiating outward while listening / speaking
     if (active && !reduceMotion) {
-      const bars = 72;
-      const ringBase = r * 1.28;
-      octx.save();
-      octx.translate(cx, cy);
-      for (let i = 0; i < bars; i++) {
-        const idx = Math.floor((i / bars) * freqBins.length);
+      const ticks = 96;
+      octx.lineCap = "round";
+      octx.lineWidth = Math.max(1.5, base * 0.016);
+      for (let i = 0; i < ticks; i++) {
+        const idx = Math.floor((i / ticks) * freqBins.length);
         const mag = (freqBins[idx] || 0) / 255;
-        const len = r * (0.06 + mag * 0.55);
-        const ang = (i / bars) * Math.PI * 2 + phase * 0.2;
-        const x1 = Math.cos(ang) * ringBase;
-        const y1 = Math.sin(ang) * ringBase;
-        const x2 = Math.cos(ang) * (ringBase + len);
-        const y2 = Math.sin(ang) * (ringBase + len);
-        const mix = i / bars;
-        octx.strokeStyle = `rgba(${Math.round(52 + mix * 72)}, ${Math.round(180 + mix * 20)}, ${Math.round(208 + mix * 40)}, ${0.35 + mag * 0.5})`;
-        octx.lineWidth = Math.max(1.5, r * 0.02);
-        octx.lineCap = "round";
+        if (mag < 0.02) continue;
+        const len = base * (0.03 + mag * 0.42);
+        const ang = (i / ticks) * Math.PI * 2 - Math.PI / 2 + phase * 0.15;
+        const x1 = Math.cos(ang) * ringBase, y1 = Math.sin(ang) * ringBase;
+        const x2 = Math.cos(ang) * (ringBase + len), y2 = Math.sin(ang) * (ringBase + len);
+        octx.strokeStyle = `rgba(30,91,69,${0.32 + mag * 0.5})`;
         octx.beginPath();
         octx.moveTo(x1, y1);
         octx.lineTo(x2, y2);
         octx.stroke();
       }
-      octx.restore();
     }
 
-    // outer glow
-    const glow = octx.createRadialGradient(cx, cy, r * 0.2, cx, cy, r * 2.2);
-    glow.addColorStop(0, "rgba(124,107,245,0.30)");
-    glow.addColorStop(1, "rgba(124,107,245,0)");
-    octx.fillStyle = glow;
-    octx.beginPath(); octx.arc(cx, cy, r * 2.2, 0, Math.PI * 2); octx.fill();
-
-    // core blob with shifting aurora gradient
-    const ang = phase * 0.6;
-    const gx = cx + Math.cos(ang) * r * 0.4, gy = cy + Math.sin(ang) * r * 0.4;
-    const g = octx.createRadialGradient(gx, gy, r * 0.1, cx, cy, r);
-    g.addColorStop(0, "#34e0d0");
-    g.addColorStop(0.5, "#5aa9ec");
-    g.addColorStop(1, "#7c6bf5");
-    octx.fillStyle = g;
-    octx.beginPath(); octx.arc(cx, cy, r, 0, Math.PI * 2); octx.fill();
-
-    // thin bright rim
-    octx.strokeStyle = "rgba(255,255,255,0.22)";
-    octx.lineWidth = Math.max(1, r * 0.012);
-    octx.beginPath(); octx.arc(cx, cy, r, 0, Math.PI * 2); octx.stroke();
-
-    // inner highlight
-    const hl = octx.createRadialGradient(cx - r * 0.3, cy - r * 0.35, 0, cx - r * 0.3, cy - r * 0.35, r);
-    hl.addColorStop(0, "rgba(255,255,255,0.38)");
-    hl.addColorStop(0.4, "rgba(255,255,255,0)");
-    octx.fillStyle = hl;
-    octx.beginPath(); octx.arc(cx, cy, r, 0, Math.PI * 2); octx.fill();
-
+    octx.restore();
     requestAnimationFrame(drawOrb);
   }
   requestAnimationFrame(drawOrb);
@@ -578,7 +558,7 @@
     } catch (err) {
       showFormError("Couldn't send just now. Please try again.");
     } finally {
-      sendHandoff.disabled = false; sendHandoff.textContent = "Send to support";
+      sendHandoff.disabled = false; sendHandoff.textContent = "Send request";
     }
   });
 
