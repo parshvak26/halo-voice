@@ -173,9 +173,12 @@
       model: "nova-3", language: "en", smart_format: "true", punctuate: "true",
       interim_results: "true", endpointing: "400",
       encoding: "linear16", sample_rate: String(sr), channels: "1",
-      access_token: token,
     });
-    ws = new WebSocket("wss://api.deepgram.com/v1/listen?" + qs.toString());
+    // Authenticate the browser WebSocket with the short-lived JWT via the
+    // "bearer" Sec-WebSocket-Protocol scheme. Browsers can't set an
+    // Authorization header on a WebSocket, and Deepgram requires JWTs to use
+    // the Bearer scheme (the older ?access_token= query param no longer authenticates).
+    ws = new WebSocket("wss://api.deepgram.com/v1/listen?" + qs.toString(), ["bearer", token]);
 
     ws.onopen = () => {
       streaming = true;
